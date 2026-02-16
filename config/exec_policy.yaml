@@ -1,0 +1,46 @@
+deny_commands:
+  - rm
+  - mkfs
+  - dd
+  - shutdown
+  - reboot
+  - halt
+  - poweroff
+
+deny_patterns:
+  - "\\brm\\s+-rf\\s+/(?:\\s|$)"
+  - "\\bmkfs(\\.\\w+)?\\b"
+  - "\\bdd\\s+if=.*\\s+of=/dev/"
+  - "\\bcurl\\b.*\\|\\s*(bash|sh)\\b"
+  - "\\bwget\\b.*\\|\\s*(bash|sh)\\b"
+  - "\\bchmod\\s+777\\b"
+  - "\\bchown\\s+-R\\s+root\\b"
+  - "\\b(?:iptables|ufw)\\b"
+
+allow_patterns:
+  - "^ls(\\s|$)"
+  - "^pwd(\\s|$)"
+  - "^cat\\s+"
+  - "^echo\\s+"
+  - "^python3?\\s+"
+  - "^pip3?\\s+"
+  - "^git\\s+(status|diff|log|show)\\b"
+  - "^docker\\s+ps\\b"
+
+blocked_cwd_prefixes:
+  - "/etc"
+  - "/usr"
+  - "/bin"
+  - "/sbin"
+  - "/var/run"
+
+# Keep empty by default; if set, cwd must match one of these.
+allowed_cwd_prefixes: []
+
+max_command_length: 1024
+
+elevated:
+  deny_patterns:
+    - "\\b(?:ssh|scp|sftp)\\b"
+    - "\\b(?:nc|ncat|netcat)\\b"
+    - "\\b(?:openssl)\\s+s_client\\b"

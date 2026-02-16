@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: sandbox-container-tests
+        name: Run containerized sandbox tests
+        entry: make test
+        language: system
+        pass_filenames: false

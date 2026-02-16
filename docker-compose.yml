@@ -1,0 +1,99 @@
+version: "3.8"
+
+services:
+  # --- THE SECURITY BRAIN ---
+  security-brain:
+    image: alpine/ollama
+    container_name: security-brain
+    restart: unless-stopped
+    volumes:
+      - ollama_storage:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --- THE INSPECTOR (SHIELD API) ---
+  inspector-api:
+    build: .
+    container_name: inspector-api
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=http://security-brain:11434
+      - SECURITY_MODEL=qwen2.5:0.5b
+      - EXEC_GUARD_MODE=${EXEC_GUARD_MODE:-observe}
+      - EXEC_GUARD_FAIL_MODE=${EXEC_GUARD_FAIL_MODE:-approval}
+      - EXEC_GUARD_TIMEOUT_MS=${EXEC_GUARD_TIMEOUT_MS:-2500}
+      - EXEC_GUARD_POLICY_PATH=/app/config/exec_policy.yaml
+    volumes:
+      - haproxy_socket:/var/run/haproxy
+      - ./runtime_whitelist.lst:/app/runtime_whitelist.lst
+      - ./config:/app/config:ro
+      - model_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+    depends_on:
+      security-brain:
+        condition: service_healthy
+
+  # --- THE GATEWAY (HAPROXY) ---
+  ai-gateway:
+    image: haproxy:2.8
+    container_name: ai-gateway
+    restart: unless-stopped
+    user: root
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./runtime_whitelist.lst:/etc/haproxy/runtime_whitelist.lst:ro
+      # FIX: Use internal volume to allow 'mode 666'
+      - haproxy_socket:/var/run/haproxy
+    ports:
+      - "8080:8080"
+      - "8404:8404"
+    healthcheck:
+      test: ["CMD", "haproxy", "-v"]
+      interval: 5s
+      retries: 5
+
+  # --- THE AGENT (OPENCLAW / OPENCODE) ---
+  openclaw-agent:
+    image: ghcr.io/openclaw/openclaw:latest
+    container_name: openclaw-agent
+    restart: unless-stopped
+    command: ["node", "openclaw.mjs", "gateway", "--allow-unconfigured", "--bind", "lan"]
+    environment:
+      - HTTPS_PROXY=http://ai-gateway:8080
+      - NO_PROXY=api.telegram.org,api.telegram.com,generativelanguage.googleapis.com,localhost,127.0.0.1
+      - no_proxy=api.telegram.org,api.telegram.com,generativelanguage.googleapis.com,localhost,127.0.0.1
+      - SCANNER_URL=http://inspector-api:5000/scan
+      - EXEC_SCANNER_URL=http://inspector-api:5000/scan_exec
+      - OPENCODE_HEADLESS=true
+      - WORKSPACE=/data
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - TELEGRAM_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ALLOWED_IDS=${TELEGRAM_ALLOWED_IDS:-}
+      - OPENCLAW_DEFAULT_MODEL=${OPENCLAW_DEFAULT_MODEL:-}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN:-${GATEWAY_TOKEN:-}}
+      - OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_GATEWAY_PASSWORD:-}
+    volumes:
+      - ./workspace:/data
+      - openclaw_config:/home/node/.openclaw
+    ports:
+      - "18789:18789"
+    depends_on:
+      ai-gateway:
+        condition: service_healthy
+      inspector-api:
+        condition: service_healthy
+
+volumes:
+  ollama_storage:
+  # This creates a pure Linux volume for the socket
+  haproxy_socket:
+  model_cache:
+  openclaw_config:
