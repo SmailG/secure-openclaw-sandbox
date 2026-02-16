@@ -1,0 +1,59 @@
+# === Credentials & Secrets ===
+# NEVER commit these files. They contain your API keys and sensitive data.
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+certs/
+secrets/
+openclaw.json
+
+# === Python & Virtual Environments ===
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+.python-version
+
+# === Docker & Containers ===
+# Ignore local data persistence for your agents
+data/
+*.db
+*.sqlite
+logs/
+# If you use a custom Docker network or state
+.docker/
+
+# System files that clutter the repo
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# === IDEs & Editors ===
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+# JetBrains (PyCharm)
+.idea/
+
+# === Project Specific ===
+# The local workspace folder where you clone your dev projects
+workspace/
+# SpecStory local session/history artifacts
+.specstory/
+# Any build artifacts from your Next.js or Industrial projects
+dist/
+build/
+.next/
+node_modules/
+out/
+
+# === Keep Templates ===
+# We want to keep example files for others to follow
+!.env.example
